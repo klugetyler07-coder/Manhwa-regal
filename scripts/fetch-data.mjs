@@ -50,9 +50,7 @@ const row = m => {
   return a;
 };
 
-// Fehler als GitHub-Annotation ausgeben, damit sie in der Übersicht des Laufs sichtbar sind
-process.on("unhandledRejection", e => { console.log(`::error title=Abholen fehlgeschlagen::${String(e && e.message || e).slice(0, 900)}`); process.exit(1); });
-
+async function main() {
 await mkdir(OUT, { recursive: true });
 const counts = {};
 for (const country of COUNTRIES) {
@@ -60,6 +58,7 @@ for (const country of COUNTRIES) {
   let after = 0;
   for (;;) {
     const media = await query({ country, after });
+    if (!after) console.log(`::notice title=${country}::Erste Seite geladen (${media.length} Titel)`);
     rows.push(...media.map(row));
     if (media.length < 50) break;
     after = media[media.length - 1].id;
@@ -74,3 +73,10 @@ for (const country of COUNTRIES) {
 }
 await writeFile(join(OUT, "meta.json"), JSON.stringify({ updated: new Date().toISOString(), countries: COUNTRIES, counts }));
 console.log("Fertig", counts);
+}
+
+// Fehler als GitHub-Annotation ausgeben, damit sie in der Übersicht des Laufs sichtbar sind
+main().catch(e => {
+  console.log(`::error title=Abholen fehlgeschlagen::${String((e && e.stack) || e).replace(/\n/g, " | ").slice(0, 900)}`);
+  process.exit(1);
+});
