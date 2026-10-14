@@ -9,10 +9,16 @@ const COUNTRIES = ["KR", "CN", "JP", "TW"];
 const DELAY_MS = 2200; // AniList erlaubt derzeit etwa 30 Anfragen pro Minute
 const STATUS = { RELEASING: 0, FINISHED: 1, HIATUS: 2, NOT_YET_RELEASED: 3, CANCELLED: 4 };
 
-const QUERY = `query($country:CountryCode,$page:Int){
+// AniList liefert pro Abfrage höchstens 5000 Einträge. Deshalb wird nach Beliebtheit
+// (und notfalls nach Status) in Teilmengen unter 5000 aufgeteilt.
+const MAX = 4900;
+const FILTER = `countryOfOrigin:$country,isAdult:false,format_in:[MANGA,ONE_SHOT],popularity_greater:$popGt,popularity_lesser:$popLt,status:$status`;
+const VARS = `$country:CountryCode,$popGt:Int,$popLt:Int,$status:MediaStatus`;
+const COUNT = `query(${VARS}){ Page(page:1,perPage:1){ pageInfo{ total } media(${FILTER}){ id } } }`;
+const QUERY = `query(${VARS},$page:Int){
   Page(page:$page,perPage:50){
     pageInfo{ hasNextPage }
-    media(type:MANGA,countryOfOrigin:$country,isAdult:false,sort:ID){
+    media(${FILTER},sort:ID){
       id title{ romaji english } genres tags{ name rank isMediaSpoiler } status chapters volumes
       averageScore popularity trending startDate{ year } coverImage{ medium color }
       externalLinks{ site url type language }
@@ -20,18 +26,18 @@ const QUERY = `query($country:CountryCode,$page:Int){
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function query(variables, attempt = 1) {
+async function query(variables, attempt = 1, q = QUERY) {
   const res = await fetch("https://graphql.anilist.co", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query: QUERY, variables })
+    body: JSON.stringify({ query: q, variables })
   });
   if (res.status === 429 || res.status >= 500) {
     if (attempt > 8) throw new Error(`AniList antwortet mit ${res.status}`);
     const wait = Number(res.headers.get("retry-after")) * 1000 || 30000 * attempt;
     console.log(`  ${res.status}, warte ${Math.round(wait / 1000)} s`);
     await sleep(wait);
-    return query(variables, attempt + 1);
+    return query(variables, attempt + 1, q);
   }
   const text = await res.text();
   let json;
@@ -51,26 +57,52 @@ const row = m => {
   return a;
 };
 
-async function main() {
-await mkdir(OUT, { recursive: true });
-const counts = {};
-for (const country of COUNTRIES) {
-  const rows = [];
-  for (let page = 1; ; page++) {
-    const { media, pageInfo } = await query({ country, page });
-    rows.push(...media.map(row));
-    if (!pageInfo.hasNextPage || !media.length) break;
-    if (rows.length % 1000 === 0) console.log(`${country}: ${rows.length}`);
-    await sleep(DELAY_MS);
-  }
-  rows.sort((a, b) => (b[9] || 0) - (a[9] || 0));
-  await writeFile(join(OUT, `${country}.json`), JSON.stringify(rows));
-  counts[country] = rows.length;
-  console.log(`::notice title=${country}::${rows.length} Titel gespeichert`);
+async function count(v) {
+  const page = await query(v, 1, COUNT);
   await sleep(DELAY_MS);
+  return page.pageInfo.total;
 }
-await writeFile(join(OUT, "meta.json"), JSON.stringify({ updated: new Date().toISOString(), countries: COUNTRIES, counts }));
-console.log("Fertig", counts);
+
+// Zerlegt [lo, hi] (Beliebtheit, beide inklusive) so lange, bis jede Teilmenge unter MAX liegt
+async function partitions(country, lo, hi, status = null) {
+  const v = { country, popGt: lo > 0 ? lo - 1 : null, popLt: hi + 1, status };
+  const n = await count(v);
+  if (n === 0) return [];
+  if (n < MAX) return [v];
+  if (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    return [...await partitions(country, lo, mid, status), ...await partitions(country, mid + 1, hi, status)];
+  }
+  if (!status) {
+    const out = [];
+    for (const st of Object.keys(STATUS)) out.push(...await partitions(country, lo, hi, st));
+    return out;
+  }
+  console.log(`::warning title=${country}::Beliebtheit ${lo}, Status ${status}: ${n} Titel, nur die ersten ${MAX} geholt`);
+  return [v];
+}
+
+async function main() {
+  await mkdir(OUT, { recursive: true });
+  const counts = {};
+  for (const country of COUNTRIES) {
+    const byId = new Map();
+    for (const v of await partitions(country, 0, 5000000)) {
+      for (let page = 1; page * 50 <= 5000; page++) {
+        const { media, pageInfo } = await query({ ...v, page });
+        media.forEach(m => byId.set(m.id, row(m)));
+        await sleep(DELAY_MS);
+        if (!pageInfo.hasNextPage || !media.length) break;
+      }
+      console.log(`${country}: ${byId.size}`);
+    }
+    const rows = [...byId.values()].sort((a, b) => (b[9] || 0) - (a[9] || 0));
+    await writeFile(join(OUT, `${country}.json`), JSON.stringify(rows));
+    counts[country] = rows.length;
+    console.log(`::notice title=${country}::${rows.length} Titel gespeichert`);
+  }
+  await writeFile(join(OUT, "meta.json"), JSON.stringify({ updated: new Date().toISOString(), countries: COUNTRIES, counts }));
+  console.log("Fertig", counts);
 }
 
 // Fehler als GitHub-Annotation ausgeben, damit sie in der Übersicht des Laufs sichtbar sind
