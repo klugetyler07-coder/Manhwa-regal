@@ -11,10 +11,11 @@ const STATUS = { RELEASING: 0, FINISHED: 1, HIATUS: 2, NOT_YET_RELEASED: 3, CANC
 
 // AniList liefert pro Abfrage höchstens 5000 Einträge. Deshalb wird nach Beliebtheit
 // (und notfalls nach Status) in Teilmengen unter 5000 aufgeteilt.
-const MAX = 4900;
-const FILTER = `countryOfOrigin:$country,isAdult:false,format_in:[MANGA,ONE_SHOT],popularity_greater:$popGt,popularity_lesser:$popLt,status:$status`;
-const VARS = `$country:CountryCode,$popGt:Int,$popLt:Int,$status:MediaStatus`;
-const COUNT = `query(${VARS}){ Page(page:1,perPage:1){ pageInfo{ total } media(${FILTER}){ id } } }`;
+const FILTER = `countryOfOrigin:$country,isAdult:false,format_in:[MANGA,ONE_SHOT],popularity_greater:$popGt,popularity_lesser:$popLt,status:$status,startDate_greater:$dateGt,startDate_lesser:$dateLt`;
+const VARS = `$country:CountryCode,$popGt:Int,$popLt:Int,$status:MediaStatus,$dateGt:FuzzyDateInt,$dateLt:FuzzyDateInt`;
+// pageInfo.total ist bei AniList unzuverlässig (meldet oft pauschal 5000). Stattdessen wird
+// die letzte erlaubte Seite (100 × 50) abgefragt: ist sie voll, ist die Teilmenge zu groß.
+const PROBE = `query(${VARS}){ Page(page:100,perPage:50){ media(${FILTER},sort:ID){ id } } }`;
 const QUERY = `query(${VARS},$page:Int){
   Page(page:$page,perPage:50){
     pageInfo{ hasNextPage }
@@ -27,12 +28,21 @@ const QUERY = `query(${VARS},$page:Int){
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function query(variables, attempt = 1, q = QUERY) {
-  const res = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    // AniList behandelt null als Wert („Illegal operator and value combination“), deshalb weglassen
-    body: JSON.stringify({ query: q, variables: Object.fromEntries(Object.entries(variables).filter(([, x]) => x != null)) })
-  });
+  let res;
+  try {
+    res = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      // AniList behandelt null als Wert („Illegal operator and value combination“), deshalb weglassen
+      body: JSON.stringify({ query: q, variables: Object.fromEntries(Object.entries(variables).filter(([, x]) => x != null)) })
+    });
+  } catch (e) {
+    // Kurze Netzwerkaussetzer („fetch failed“) einfach wiederholen
+    if (attempt > 8) throw e;
+    console.log(`  Netzwerkfehler (${e.message}), neuer Versuch in ${15 * attempt} s`);
+    await sleep(15000 * attempt);
+    return query(variables, attempt + 1, q);
+  }
   if (res.status === 429 || res.status >= 500) {
     if (attempt > 8) throw new Error(`AniList antwortet mit ${res.status}`);
     const wait = Number(res.headers.get("retry-after")) * 1000 || 30000 * attempt;
@@ -58,18 +68,20 @@ const row = m => {
   return a;
 };
 
-async function count(v) {
-  const page = await query(v, 1, COUNT);
+async function fits(v) {
+  const page = await query(v, 1, PROBE);
   await sleep(DELAY_MS);
-  return page.pageInfo.total;
+  return page.media.length < 50;
 }
 
-// Zerlegt [lo, hi] (Beliebtheit, beide inklusive) so lange, bis jede Teilmenge unter MAX liegt
-async function partitions(country, lo, hi, status = null) {
-  const v = { country, popGt: lo > 0 ? lo - 1 : null, popLt: hi + 1, status };
-  const n = await count(v);
-  if (n === 0) return [];
-  if (n < MAX) return [v];
+const YEAR = new Date().getUTCFullYear();
+const YEARS = [[null, 19900000], ...Array.from({ length: YEAR + 2 - 1990 }, (_, i) => [(1990 + i) * 10000 - 1, (1991 + i) * 10000])];
+
+// Zerlegt [lo, hi] (Beliebtheit, beide inklusive) so lange, bis jede Teilmenge unter 5000 liegt;
+// reicht das nicht, zusätzlich nach Status und dann nach Erscheinungsjahr
+async function partitions(country, lo, hi, status = null, date = null) {
+  const v = { country, popGt: lo > 0 ? lo - 1 : null, popLt: hi + 1, status, dateGt: date?.[0], dateLt: date?.[1] };
+  if (await fits(v)) return [v];
   if (lo < hi) {
     const mid = Math.floor((lo + hi) / 2);
     return [...await partitions(country, lo, mid, status), ...await partitions(country, mid + 1, hi, status)];
@@ -79,7 +91,13 @@ async function partitions(country, lo, hi, status = null) {
     for (const st of Object.keys(STATUS)) out.push(...await partitions(country, lo, hi, st));
     return out;
   }
-  console.log(`::warning title=${country}::Beliebtheit ${lo}, Status ${status}: ${n} Titel, nur die ersten ${MAX} geholt`);
+  if (!date) {
+    // Titel ohne Startdatum fallen durch alle Jahresfilter, deshalb zusätzlich die ungefilterte Menge (gekappt)
+    const out = [v];
+    for (const d of YEARS) out.push(...await partitions(country, lo, hi, status, d));
+    return out;
+  }
+  console.log(`::warning title=${country}::Beliebtheit ${lo}, Status ${status}, Jahr ${date[1] / 10000 - 1}: mehr als 5000 Titel, nur die ersten 5000 geholt`);
   return [v];
 }
 
