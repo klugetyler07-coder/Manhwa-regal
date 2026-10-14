@@ -28,29 +28,30 @@ const QUERY = `query(${VARS},$page:Int){
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function query(variables, attempt = 1, q = QUERY) {
-  let res;
+  let res, text;
   try {
     res = await fetch("https://graphql.anilist.co", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       // AniList behandelt null als Wert („Illegal operator and value combination“), deshalb weglassen
-      body: JSON.stringify({ query: q, variables: Object.fromEntries(Object.entries(variables).filter(([, x]) => x != null)) })
+      body: JSON.stringify({ query: q, variables: Object.fromEntries(Object.entries(variables).filter(([, x]) => x != null)) }),
+      signal: AbortSignal.timeout(60000)
     });
+    text = await res.text();
   } catch (e) {
-    // Kurze Netzwerkaussetzer („fetch failed“) einfach wiederholen
-    if (attempt > 8) throw e;
+    // Netzwerkaussetzer („fetch failed“, „terminated“, Zeitüberschreitung) einfach wiederholen
+    if (attempt > 10) throw e;
     console.log(`  Netzwerkfehler (${e.message}), neuer Versuch in ${15 * attempt} s`);
     await sleep(15000 * attempt);
     return query(variables, attempt + 1, q);
   }
   if (res.status === 429 || res.status >= 500) {
-    if (attempt > 8) throw new Error(`AniList antwortet mit ${res.status}`);
+    if (attempt > 10) throw new Error(`AniList antwortet mit ${res.status}`);
     const wait = Number(res.headers.get("retry-after")) * 1000 || 30000 * attempt;
     console.log(`  ${res.status}, warte ${Math.round(wait / 1000)} s`);
     await sleep(wait);
     return query(variables, attempt + 1, q);
   }
-  const text = await res.text();
   let json;
   try { json = JSON.parse(text); } catch { throw new Error(`AniList HTTP ${res.status}, keine JSON-Antwort: ${text.slice(0, 300)}`); }
   if (!res.ok || json.errors) throw new Error(`AniList HTTP ${res.status}: ${JSON.stringify(json.errors || json).slice(0, 600)}`);
@@ -106,20 +107,26 @@ async function main() {
   const counts = {};
   for (const country of COUNTRIES) {
     const byId = new Map();
-    for (const v of await partitions(country, 0, 5000000)) {
-      for (let page = 1; page * 50 <= 5000; page++) {
-        const { media, pageInfo } = await query({ ...v, page });
-        media.forEach(m => byId.set(m.id, row(m)));
-        await sleep(DELAY_MS);
-        if (!pageInfo.hasNextPage || !media.length) break;
+    try {
+      for (const v of await partitions(country, 0, 5000000)) {
+        for (let page = 1; page * 50 <= 5000; page++) {
+          const { media, pageInfo } = await query({ ...v, page });
+          media.forEach(m => byId.set(m.id, row(m)));
+          await sleep(DELAY_MS);
+          if (!pageInfo.hasNextPage || !media.length) break;
+        }
+        console.log(`${country}: ${byId.size}`);
       }
-      console.log(`${country}: ${byId.size}`);
+    } catch (e) {
+      // Ein Land, das abbricht, soll die übrigen nicht mitreißen; was bis dahin geholt wurde, wird gespeichert
+      console.log(`::warning title=${country} unvollständig::${String((e && e.stack) || e).replace(/\n/g, " | ").slice(0, 600)}`);
     }
     const rows = [...byId.values()].sort((a, b) => (b[9] || 0) - (a[9] || 0));
     await writeFile(join(OUT, `${country}.json`), JSON.stringify(rows));
     counts[country] = rows.length;
     console.log(`::notice title=${country}::${rows.length} Titel gespeichert`);
   }
+  if (!Object.values(counts).some(Boolean)) throw new Error("Keine Titel geholt");
   await writeFile(join(OUT, "meta.json"), JSON.stringify({ updated: new Date().toISOString(), countries: COUNTRIES, counts }));
   console.log("Fertig", counts);
 }
