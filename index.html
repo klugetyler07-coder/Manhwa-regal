@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manhwa Regal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Suchmaschine. Großes Suchfeld oben, Genre-Chips darunter, Ergebnisliste mit Lese-Links direkt in jeder Zeile */
+:root {
+  --bg: #f3f4f8;
+  --surface: #ffffff;
+  --ink: #161a2b;
+  --muted: #5d6481;
+  --line: #dde0ea;
+  --accent: #2b4fd8;
+  --accent-soft: #e4e9ff;
+  --accent-ink: #ffffff;
+  --jade: #0f7f6c;
+  --warn-bg: #fff4dc;
+  --warn-ink: #6b4a00;
+  --star: #e0a100;
+  --star-soft: #fff6d6;
+  --f-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1220; --surface: #181c2e; --ink: #e9ebf5; --muted: #9aa1bf; --line: #2a3048;
+    --accent: #7d97ff; --accent-soft: #232c52; --accent-ink: #0f1220; --jade: #4fd1b5; --warn-bg: #3a2f12; --warn-ink: #ffd98a; --star: #f5c542; --star-soft: #3a3214;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1220; --surface: #181c2e; --ink: #e9ebf5; --muted: #9aa1bf; --line: #2a3048;
+  --accent: #7d97ff; --accent-soft: #232c52; --accent-ink: #0f1220; --jade: #4fd1b5; --warn-bg: #3a2f12; --warn-ink: #ffd98a; --star: #f5c542; --star-soft: #3a3214;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { padding-block: 32px 8px; display: grid; gap: 6px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 0; letter-spacing: -.01em; }
+h1 span { color: var(--accent); }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+.searchbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.searchbar .wrap { padding-block: 14px 12px; display: grid; gap: 10px; }
+.box { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 4px 6px 4px 14px; }
+.box:focus-within { border-color: var(--accent); }
+.box svg { flex: none; color: var(--muted); }
+.box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 17px var(--f-body); padding: 10px 0; }
+.box button { flex: none; }
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); flex-wrap: wrap; }
+.tabs button { border: 0; background: transparent; color: var(--muted); font: 600 13px var(--f-body); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.tabs .glyph { font-weight: 500; opacity: .75; margin-right: 5px; }
+select { font: 14px var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.genres { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.gchip { flex: none; font: 500 13px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.gchip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.gchip.clear { color: var(--muted); }
+.genres { align-items: center; }
+.genres.open { flex-wrap: wrap; overflow: visible; }
+.gpanel { flex-basis: 100%; display: grid; gap: 12px; padding-top: 6px; max-height: 50vh; overflow-y: auto; }
+.gwrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.ggroup h4 { margin: 0 0 6px; font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.gchip.more { color: var(--accent); border-color: var(--accent); }
+.ghint { flex: none; align-self: center; font-size: 13px; color: var(--muted); padding-right: 2px; }
+.btn.small { font-size: 12px; padding: 4px 9px; font-weight: 500; }
+
+.notice { margin-top: 16px; background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+.meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-block: 16px 4px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.results { display: grid; }
+.res { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; padding-block: 16px; border-bottom: 1px solid var(--line); }
+.thumb { position: relative; width: 64px; aspect-ratio: 2 / 3; max-width: 100%; border-radius: 5px; overflow: hidden; background: var(--c, #556); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; position: relative; }
+.thumb .ph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 26px; background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(0,0,0,.3)); }
+.res h3 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; }
+.res h3 a { color: var(--ink); text-decoration: none; }
+.res h3 a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.alt { font-size: 13px; color: var(--muted); }
+.sub { font-size: 13px; color: var(--muted); display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.st-RELEASING { background: var(--jade); }
+.st-FINISHED { background: var(--accent); }
+.st-HIATUS, .st-NOT_YET_RELEASED, .st-CANCELLED { background: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.tag { font: 500 12px var(--f-mono); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); background: none; cursor: pointer; }
+.tag.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.read { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+.read .lbl { font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 2px; }
+.btn { font: 600 13px var(--f-body); border: 1px solid var(--accent); color: var(--accent); background: transparent; padding: 6px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+.btn.solid { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { border-color: var(--line); color: var(--muted); }
+.none { font-size: 13px; color: var(--muted); }
+.more { display: flex; justify-content: center; padding-block: 20px 48px; }
+.more .btn { font-size: 14px; padding: 10px 18px; }
+.empty { padding: 48px 0; color: var(--muted); text-align: center; }
+
+.shelves { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 24px; }
+.shelf { min-width: 0; }
+.shelf h2, .list-h { font-family: var(--f-display); font-weight: 500; font-size: 19px; margin: 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.shelf h2 small, .list-h small { font: 400 12px var(--f-mono); color: var(--muted); letter-spacing: .02em; }
+.shelf .track { display: flex; gap: 14px; overflow-x: auto; padding-block: 12px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.scard { flex: none; width: 132px; display: grid; gap: 6px; align-content: start; scroll-snap-align: start; }
+.scard .thumb { width: 132px; border-radius: 6px; }
+.scard .thumb .ph { font-size: 40px; align-content: end; justify-items: start; padding: 8px; }
+.scard .thumb .ph b { font: 500 12px var(--f-display); line-height: 1.2; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.rank { position: absolute; top: 6px; left: 6px; font: 500 11px var(--f-mono); background: rgba(10,12,20,.75); color: #fff; padding: 1px 6px; border-radius: 4px; z-index: 1; }
+.scard h3 { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.scard h3 a { color: var(--ink); text-decoration: none; }
+.scard .g { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scard .btn { font-size: 12px; padding: 4px 8px; justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf .skel { height: 230px; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.list-h { padding-top: 28px; }
+@media (max-width: 480px) { .scard, .scard .thumb { width: 112px; } }
+.fav { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 600 13px var(--f-body); padding: 5px 10px; border-radius: 8px; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+.fav[aria-pressed="true"] { color: var(--star); border-color: var(--star); background: var(--star-soft); }
+.fav .s { font-size: 15px; line-height: 1; }
+.res .head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.scard .fav { position: absolute; top: 4px; right: 4px; z-index: 1; padding: 3px 7px; background: rgba(10,12,20,.7); border-color: transparent; color: #fff; }
+.scard .fav[aria-pressed="true"] { background: var(--star); color: #1b1300; }
+.scard .wrapthumb { position: relative; }
+.favtab { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 13px var(--f-body); padding: 6px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.favtab[aria-pressed="true"] { background: var(--star); border-color: var(--star); color: #1b1300; }
+.favtab .n { font: 500 12px var(--f-mono); font-variant-numeric: tabular-nums; }
+footer { border-top: 1px solid var(--line); padding-block: 20px 32px; color: var(--muted); font-size: 13px; }
+footer p { margin: 0 0 6px; max-width: 75ch; }
+footer a { color: var(--accent); }
+@media (max-width: 480px) {
+  .res { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; }
+  .thumb { width: 52px; }
+  .res h3 { font-size: 16px; }
+}
+</style>
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<header class="top wrap">
+  <div class="eyebrow">Suchmaschine · Manhwa, Manhua &amp; Manga auf Englisch</div>
+  <h1>Manhwa <span>Regal</span></h1>
+  <p class="lede">Suche nach Titel oder Genre und spring direkt zu den offiziellen Seiten, auf denen du die englische Ausgabe lesen kannst.</p>
+  <div class="notice" id="notice" hidden></div>
+</header>
+
+<div class="searchbar">
+  <div class="wrap">
+    <form class="box" id="form" role="search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input id="q" type="search" placeholder="Titel oder Genre, z. B. Solo Leveling oder Romantik" aria-label="Suche" autocomplete="off">
+      <button class="btn solid" type="submit">Suchen</button>
+    </form>
+    <div class="suggest" id="suggest" hidden></div>
+    <div class="genres" id="genres" role="group" aria-label="Genres"></div>
+    <div class="row">
+      <button type="button" class="favtab" id="favtab" aria-pressed="false"><span>★ Favoriten</span><span class="n" id="favcount">0</span></button>
+      <div class="tabs" role="group" aria-label="Herkunft">
+        <button data-country="ALL" aria-pressed="true">Alle</button>
+        <button data-country="KR" aria-pressed="false"><span class="glyph">한</span>Manhwa</button>
+        <button data-country="CN" aria-pressed="false"><span class="glyph">中</span>Manhua</button>
+        <button data-country="JP" aria-pressed="false"><span class="glyph">日</span>Manga</button>
+        <button data-country="TW" aria-pressed="false"><span class="glyph">台</span>Taiwan</button>
+      </div>
+      <select id="status" aria-label="Status">
+        <option value="">Jeder Status</option>
+        <option value="RELEASING">Laufend</option>
+        <option value="FINISHED">Abgeschlossen</option>
+        <option value="HIATUS">Pausiert</option>
+      </select>
+      <select id="sort" aria-label="Sortierung">
+        <option value="POPULARITY_DESC">Beliebteste zuerst</option>
+        <option value="TRENDING_DESC">Gerade angesagt</option>
+        <option value="SCORE_DESC">Beste Bewertung</option>
+        <option value="START_DATE_DESC">Neueste zuerst</option>
+        <option value="TITLE_ROMAJI">Titel A bis Z</option>
+      </select>
+      <label class="check"><input id="en" type="checkbox"> Nur mit englischer Leseseite</label>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="shelves" id="shelves"></div>
+  <h2 class="list-h" id="list-h">Alle Titel <small id="list-sub">nach Beliebtheit</small></h2>
+  <div class="meta"><span id="count">Suche läuft …</span><span id="source"></span></div>
+  <div class="results" id="results"></div>
+  <div class="more"><button class="btn" id="more" hidden>Mehr Ergebnisse</button></div>
+</main>
+
+<footer class="wrap">
+  <p>Manhwa Regal ist ein Katalog: Er zeigt Titel, Genres und Status und verlinkt nur auf offizielle Plattformen. Kapitel werden hier nicht gehostet oder angezeigt.</p>
+  <p>Daten: <a href="https://anilist.co" target="_blank" rel="noopener">AniList</a> (live, wenn erreichbar) oder eine eingebaute Auswahl. Mehrere Genres gleichzeitig zeigen nur Titel, die alle gewählten Genres haben. Verlinkt werden alle offiziellen Seiten, die AniList kennt, plus die Suche großer legaler Shops; keine Scan- oder Piraterie-Seiten.</p>
+</footer>
+
+<script>
+(() => {
+  const API = "https://graphql.anilist.co";
+  const PER_PAGE = 50;
+  const GENRES = [
+    ["Action","Action"],["Adventure","Abenteuer"],["Comedy","Komödie"],["Drama","Drama"],["Fantasy","Fantasy"],
+    ["Romance","Romantik"],["Slice of Life","Alltag"],["Mystery","Mystery"],["Horror","Horror"],["Thriller","Thriller"],
+    ["Psychological","Psycho"],["Supernatural","Übernatürlich"],["Sci-Fi","Sci-Fi"],["Sports","Sport"],["Music","Musik"],["Mecha","Mecha"]
+  ];
+  const DE = Object.fromEntries(GENRES);
+  // Themen (AniList-Tags). Murim läuft bei AniList unter „Martial Arts“. Dritte Spalte: MyAnimeList-ID
+  const TAGS = [
+    ["Martial Arts","Murim / Kampfkunst",17],["Wuxia","Wuxia",null],["Isekai","Isekai",62],["Reincarnation","Reinkarnation",72],
+    ["Time Manipulation","Zeitreise / Regression",78],["Revenge","Rache",null],["Dungeon","Dungeon",null],["Video Games","Game / System",79],
+    ["Super Power","Superkräfte",31],["Magic","Magie",null],["Demons","Dämonen",null],["Vampire","Vampire",32],["Zombie","Zombies",null],
+    ["Survival","Survival",76],["Post-Apocalyptic","Postapokalypse",null],["School","Schule",23],["Historical","Historisch",13],
+    ["Military","Militär",38],["Villainess","Villainess",null],["Female Protagonist","Heldin",null],["Male Protagonist","Held",null],
+    ["Harem","Harem",35],["Boys' Love","Boys' Love",28],["Yuri","Girls' Love",26],["Shounen","Shounen",27],["Seinen","Seinen",41],
+    ["Shoujo","Shoujo",25],["Josei","Josei",42],["Cooking","Kochen",47],["Tragedy","Tragödie",null],["Gore","Gore",58]
+  ];
+  TAGS.forEach(([en, de]) => { DE[en] = de; });
+  const TAG_SET = new Set(TAGS.map(t => t[0]));
+  const MAL_TAG = Object.fromEntries(TAGS.filter(t => t[2]).map(t => [t[0], t[2]]));
+  const MAL_TAG_NAME = { "Martial Arts": "Martial Arts", Isekai: "Isekai", Reincarnation: "Reincarnation", "Time Travel": "Time Manipulation", "Video Game": "Video Games", "Super Power": "Super Power", Vampire: "Vampire", Survival: "Survival", School: "School", Historical: "Historical", Military: "Military", Harem: "Harem", "Boys Love": "Boys' Love", "Girls Love": "Yuri", Shounen: "Shounen", Seinen: "Seinen", Shoujo: "Shoujo", Josei: "Josei", Gourmet: "Cooking", Gore: "Gore" };
+  const ALL_FILTERS = [...GENRES, ...TAGS.map(([en, de]) => [en, de])];
+  const hasG = (m, g) => (m.genres || []).includes(g) || (m.tags || []).map(x => x.name || x).includes(g);
+  const STATUS_DE = { RELEASING: "Laufend", FINISHED: "Abgeschlossen", HIATUS: "Pausiert", NOT_YET_RELEASED: "Angekündigt", CANCELLED: "Abgebrochen" };
+  const GLYPH = { KR: "한", CN: "中", JP: "日", TW: "台" };
+  const ORIGIN = { KR: "Manhwa", CN: "Manhua", JP: "Manga", TW: "Taiwan" };
+  // Plattformen, die auf AniList als englische, offizielle Quellen auftauchen
+  const EN_SITES = ["webtoon","webtoons","tapas","tappytoon","lezhin","lezhin us","manta","pocket comics","comikey","inkr","yen press","ize press","seven seas","seven seas entertainment","bilibili comics","toomics","azuki","kodansha","manga plus","globalcomix","webcomics","copin comics","viz","viz media","k manga","shonen jump","mangaplus","manga up!","square enix manga","kodansha us","j-novel club","denpa","dark horse"];
+
+  const PLATFORM = {
+    webtoon: { name: "Webtoon", url: q => "https://www.webtoons.com/en/search?keyword=" + encodeURIComponent(q) },
+    tapas: { name: "Tapas", url: q => "https://tapas.io/search?q=" + encodeURIComponent(q) },
+    tappytoon: { name: "Tappytoon", url: () => "https://www.tappytoon.com/en" },
+    manta: { name: "Manta", url: () => "https://manta.net" },
+    sevenseas: { name: "Seven Seas (Buch)", url: q => "https://sevenseasentertainment.com/?s=" + encodeURIComponent(q) },
+    viz: { name: "VIZ / Shonen Jump", url: q => "https://www.viz.com/search?search=" + encodeURIComponent(q) },
+    kodansha: { name: "Kodansha", url: () => "https://kodansha.us" },
+    yenpress: { name: "Yen Press", url: () => "https://yenpress.com" },
+    darkhorse: { name: "Dark Horse (Buch)", url: () => "https://www.darkhorse.com" }
+  };
+  // Eingebaute Auswahl, falls AniList nicht erreichbar ist (z. B. in der Vorschau). [Titel, Herkunft, Genres, Status, Plattform]
+  const F = "FINISHED", R = "RELEASING";
+  const SAMPLE_TAGS = { "Nano Machine": ["Martial Arts"], "Return of the Blossoming Blade": ["Martial Arts"], "Solo Leveling": ["Dungeon"], "The Beginning After the End": ["Reincarnation", "Magic"], "The Greatest Estate Developer": ["Isekai"], "Omniscient Reader": ["Post-Apocalyptic"], "Villains Are Destined to Die": ["Villainess"], "Sweet Home": ["Survival"], "Lookism": ["School"], "Viral Hit": ["School"], "How to Fight": ["School"], "The Gamer": ["Video Games"], "Heaven Official's Blessing": ["Boys' Love"], "Grandmaster of Demonic Cultivation": ["Boys' Love"], "Tales of Demons and Gods": ["Reincarnation", "Martial Arts"], "Battle Through the Heavens": ["Martial Arts"], "Soul Land": ["Martial Arts"], "Kagurabachi": ["Martial Arts"], "Naruto": ["Martial Arts"] };
+  const SAMPLE = [
+    ["Solo Leveling","KR","Action,Fantasy,Adventure",F,"tapas"],
+    ["Tower of God","KR","Action,Fantasy,Mystery",R,"webtoon"],
+    ["Omniscient Reader","KR","Action,Fantasy",R,"webtoon"],
+    ["The Beginning After the End","KR","Action,Fantasy,Adventure",R,"tapas"],
+    ["The God of High School","KR","Action,Comedy,Supernatural",F,"webtoon"],
+    ["Noblesse","KR","Action,Supernatural",F,"webtoon"],
+    ["Eleceed","KR","Action,Comedy,Supernatural",R,"webtoon"],
+    ["Lookism","KR","Action,Drama",R,"webtoon"],
+    ["Nano Machine","KR","Action,Fantasy",R,"webtoon"],
+    ["Return of the Blossoming Blade","KR","Action,Adventure",R,"webtoon"],
+    ["The Greatest Estate Developer","KR","Comedy,Fantasy",R,"webtoon"],
+    ["The Max Level Hero Has Returned!","KR","Action,Fantasy",R,"webtoon"],
+    ["Teenage Mercenary","KR","Action,Drama",R,"webtoon"],
+    ["Viral Hit","KR","Action,Drama",R,"webtoon"],
+    ["How to Fight","KR","Action,Comedy",R,"webtoon"],
+    ["Study Group","KR","Action,Drama",R,"webtoon"],
+    ["Wind Breaker","KR","Sports,Drama",R,"webtoon"],
+    ["The Boxer","KR","Sports,Drama",F,"webtoon"],
+    ["The Gamer","KR","Action,Fantasy",R,"webtoon"],
+    ["Girls of the Wild's","KR","Action,Comedy,Romance",F,"webtoon"],
+    ["Sweet Home","KR","Horror,Thriller",F,"webtoon"],
+    ["Bastard","KR","Horror,Thriller,Psychological",F,"webtoon"],
+    ["Shotgun Boy","KR","Horror,Action",F,"webtoon"],
+    ["Distant Sky","KR","Horror,Mystery",F,"webtoon"],
+    ["Ghost Teller","KR","Horror,Mystery",F,"webtoon"],
+    ["Surviving Romance","KR","Drama,Thriller",F,"webtoon"],
+    ["Annarasumanara","KR","Drama,Mystery",F,"webtoon"],
+    ["Dice","KR","Fantasy,Drama",F,"webtoon"],
+    ["The Horizon","KR","Drama",F,"webtoon"],
+    ["Odd Girl Out","KR","Drama,Psychological",F,"webtoon"],
+    ["True Beauty","KR","Romance,Comedy,Drama",F,"webtoon"],
+    ["Cheese in the Trap","KR","Romance,Drama",F,"webtoon"],
+    ["Yumi's Cells","KR","Romance,Comedy,Slice of Life",F,"webtoon"],
+    ["Seasons of Blossom","KR","Romance,Drama",F,"webtoon"],
+    ["Free Draw","KR","Comedy,Romance",F,"webtoon"],
+    ["Positively Yours","KR","Romance,Comedy",F,"webtoon"],
+    ["Operation: True Love","KR","Romance,Comedy",F,"webtoon"],
+    ["Orange Marmalade","KR","Romance,Drama,Supernatural",F,"webtoon"],
+    ["The Remarried Empress","KR","Romance,Fantasy,Drama",R,"webtoon"],
+    ["Light and Shadow","KR","Romance,Drama",F,"tappytoon"],
+    ["Villains Are Destined to Die","KR","Romance,Fantasy",R,"tappytoon"],
+    ["Under the Oak Tree","KR","Romance,Fantasy",R,"manta"],
+    ["Heaven Official's Blessing","CN","Fantasy,Romance,Supernatural",R,"sevenseas"],
+    ["Grandmaster of Demonic Cultivation","CN","Fantasy,Mystery,Romance",R,"sevenseas"],
+    ["Fox Spirit Matchmaker","CN","Comedy,Fantasy,Romance",R,null],
+    ["Tales of Demons and Gods","CN","Action,Fantasy",R,null],
+    ["Battle Through the Heavens","CN","Action,Fantasy",R,null],
+    ["Soul Land","CN","Action,Fantasy,Adventure",R,null],
+    ["One Piece","JP","Action,Adventure,Comedy",R,"viz"],
+    ["Frieren: Beyond Journey's End","JP","Adventure,Fantasy,Drama",R,"viz"],
+    ["Kagurabachi","JP","Action,Supernatural",R,"viz"],
+    ["Dandadan","JP","Action,Comedy,Supernatural",R,"viz"],
+    ["Sakamoto Days","JP","Action,Comedy",R,"viz"],
+    ["Spy x Family","JP","Action,Comedy",R,"viz"],
+    ["Chainsaw Man","JP","Action,Horror",R,"viz"],
+    ["Blue Lock","JP","Sports,Drama",R,"kodansha"],
+    ["Jujutsu Kaisen","JP","Action,Supernatural",F,"viz"],
+    ["Oshi no Ko","JP","Drama,Mystery",F,"yenpress"],
+    ["Vinland Saga","JP","Action,Adventure,Drama",R,"kodansha"],
+    ["Attack on Titan","JP","Action,Drama,Fantasy",F,"kodansha"],
+    ["Demon Slayer","JP","Action,Supernatural",F,"viz"],
+    ["My Hero Academia","JP","Action,Comedy",F,"viz"],
+    ["Haikyu!!","JP","Sports,Comedy,Drama",F,"viz"],
+    ["Naruto","JP","Action,Adventure",F,"viz"],
+    ["Death Note","JP","Mystery,Psychological,Thriller",F,"viz"],
+    ["Fullmetal Alchemist","JP","Action,Adventure,Fantasy",F,"viz"],
+    ["Dragon Ball","JP","Action,Adventure,Comedy",F,"viz"],
+    ["Berserk","JP","Action,Fantasy,Horror",R,"darkhorse"]
+  ].map(([t, c, g, s, p], i) => ({
+    id: "s" + i, title: { english: t, romaji: t }, countryOfOrigin: c, genres: g.split(","), tags: SAMPLE_TAGS[t] || [], status: s,
+    coverImage: {}, sample: true, platform: p, popularity: 1000 - i,
+    siteUrl: "https://anilist.co/search/manga?search=" + encodeURIComponent(t), externalLinks: []
+  }));
+
+  // Regale der Startseite (eingebaute Auswahl)
+  const HOT = ["Omniscient Reader","Return of the Blossoming Blade","The Greatest Estate Developer","Nano Machine","Teenage Mercenary","Surviving Romance","Villains Are Destined to Die","Under the Oak Tree","The Max Level Hero Has Returned!","Heaven Official's Blessing","Kagurabachi","Dandadan","Sakamoto Days","Frieren: Beyond Journey's End"];
+  const CLASSIC = ["Tower of God","Noblesse","The God of High School","Cheese in the Trap","Girls of the Wild's","Annarasumanara","Orange Marmalade","The Gamer","Lookism","Bastard","Yumi's Cells","Fox Spirit Matchmaker","Naruto","Death Note","Fullmetal Alchemist","Dragon Ball","Berserk"];
+  const year = new Date().getFullYear();
+  // Regale der Startseite (live): Sortierung und Zeitraum je Regal
+  const SHELVES = [
+    { key: "hot", title: "Neue heiße Titel", sub: `seit ${year - 2} gestartet, gerade viel gelesen`, sampleSub: "aktuelle Hits aus der Auswahl", sort: "TRENDING_DESC", startGt: (year - 2) * 10000, sample: HOT },
+    { key: "trend", title: "Gerade angesagt", sub: "laufende Serien, die gerade viele lesen", sort: "TRENDING_DESC", sample: null },
+    { key: "classic", title: "Klassiker", sub: `vor ${year - 6} gestartet, am beliebtesten`, sampleSub: "lange bekannte Lieblinge aus der Auswahl", sort: "POPULARITY_DESC", startLt: (year - 6) * 10000, sample: CLASSIC }
+  ];
+
+  const QUERY = `query($page:Int,$per:Int,$country:CountryCode,$search:String,$genres:[String],$tags:[String],$status:MediaStatus,$sort:[MediaSort],$startGt:FuzzyDateInt,$startLt:FuzzyDateInt){
+    Page(page:$page,perPage:$per){ pageInfo{ total hasNextPage }
+      media(type:MANGA,countryOfOrigin:$country,search:$search,genre_in:$genres,tag_in:$tags,status:$status,sort:$sort,startDate_greater:$startGt,startDate_lesser:$startLt,isAdult:false){
+        id siteUrl countryOfOrigin title{ romaji english } coverImage{ medium large color } genres tags{ name } status chapters volumes averageScore popularity trending startDate{ year }
+        externalLinks{ site url type language }
+      } } }`;
+
+  const $ = id => document.getElementById(id);
+  const resultsEl = $("results"), moreBtn = $("more"), countEl = $("count"), sourceEl = $("source"), notice = $("notice");
+  const state = { view: "all", country: "ALL", search: "", genres: [], status: "", sort: "POPULARITY_DESC", en: false, cursors: {}, total: 0, items: [], loading: false, live: null, run: 0 };
+  try { const s = JSON.parse(localStorage.getItem("manhwa-regal") || "{}"); if (s.country) state.country = s.country; } catch (e) {}
+  $("en").checked = state.en;
+
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const titleOf = m => m.title.english || m.title.romaji;
+  const hue = str => { let h = 0; for (const ch of str) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
+  // „Alle“ ist eine einzige Anfrage ohne Länderfilter (spart Anfragen an AniList)
+  const countries = () => state.country === "ALL" ? [null] : [state.country];
+
+  function legalLinks(m) {
+    if (m.fav) return m.links || [];
+    if (m.src === "jikan" && !m.externalLinks) return [];
+    if (m.sample) return m.platform ? [{ site: PLATFORM[m.platform].name, url: PLATFORM[m.platform].url(titleOf(m)) }] : [];
+    const seen = new Set();
+    return (m.externalLinks || []).filter(l => l.type !== "SOCIAL" && (l.language === "English" || (!l.language && EN_SITES.includes((l.site || "").toLowerCase()))))
+      .filter(l => !seen.has(l.url) && seen.add(l.url));
+  }
+  const hasEnglish = m => (m.src === "jikan" && !m.externalLinks) || legalLinks(m).length > 0;
+  const LANG_DE = { English: "Englisch", Korean: "Koreanisch", Japanese: "Japanisch", Chinese: "Chinesisch", French: "Französisch", German: "Deutsch", Spanish: "Spanisch", Portuguese: "Portugiesisch", Italian: "Italienisch", Indonesian: "Indonesisch", Thai: "Thai", Vietnamese: "Vietnamesisch", Russian: "Russisch", Polish: "Polnisch", Turkish: "Türkisch", Arabic: "Arabisch" };
+  // Alle weiteren offiziellen Seiten von AniList (Originalplattform, andere Sprachen, Verlage)
+  function otherLinks(m) {
+    if (m.fav) return m.others || [];
+    if (m.sample) return [];
+    const en = new Set(legalLinks(m).map(l => l.url)), seen = new Set();
+    return (m.externalLinks || []).filter(l => l.type !== "SOCIAL" && !en.has(l.url) && !seen.has(l.url) && seen.add(l.url))
+      .map(l => ({ site: l.site, url: l.url, language: l.language || null }));
+  }
+  // Suche in großen legalen Shops und Plattformen, für jeden Titel
+  function shopLinks(m) {
+    const q = titleOf(m), e = encodeURIComponent;
+    const list = [];
+    if (m.countryOfOrigin !== "JP") list.push(["Webtoon", "https://www.webtoons.com/en/search?keyword=" + e(q)], ["Tapas", "https://tapas.io/search?q=" + e(q)]);
+    if (m.countryOfOrigin === "JP") list.push(["VIZ", "https://www.viz.com/search?search=" + e(q)]);
+    list.push(
+      ["BookWalker", "https://global.bookwalker.jp/search/?word=" + e(q)],
+      ["Amazon / Kindle", "https://www.amazon.com/s?k=" + e(q + " english")],
+      ["Google Play Bücher", "https://play.google.com/store/search?q=" + e(q) + "&c=books"],
+      ["MangaUpdates (Verlage)", "https://www.mangaupdates.com/search.html?search=" + e(q)]
+    );
+    const have = new Set(legalLinks(m).map(l => (l.site || "").toLowerCase()));
+    return list.filter(([n]) => !have.has(n.toLowerCase()));
+  }
+
+
+  // ---- Favoriten: im Browser gespeichert, auf claude.ai zusätzlich im Konto des Lesers ----
+  const FAV_LS = "manhwa-regal-favs";
+  const favs = new Map();
+  const seenItems = new Map();
+  let favCol = null;
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+  const favKey = m => m.fav ? m.key : m.sample ? "t-" + slug(titleOf(m)) : "al-" + m.id;
+  try { (JSON.parse(localStorage.getItem(FAV_LS) || "[]") || []).forEach(r => r && r.key && favs.set(r.key, r)); } catch (e) {}
+  function toRecord(m) {
+    return JSON.parse(JSON.stringify({
+      fav: true, key: favKey(m), id: String(m.id), siteUrl: m.siteUrl, countryOfOrigin: m.countryOfOrigin,
+      title: { english: m.title.english || null, romaji: m.title.romaji || null },
+      coverImage: { medium: m.coverImage?.medium || m.coverImage?.large || null, color: m.coverImage?.color || null },
+      genres: m.genres || [], status: m.status || null, chapters: m.chapters || null, volumes: m.volumes || null, averageScore: m.averageScore || null,
+      startDate: { year: m.startDate?.year || null }, links: legalLinks(m).map(l => ({ site: l.site, url: l.url })), others: otherLinks(m), addedAt: Date.now()
+    }));
+  }
+  function saveLocal() { try { localStorage.setItem(FAV_LS, JSON.stringify([...favs.values()])); } catch (e) {} }
+  function favBtn(m, withLabel) {
+    const key = favKey(m); seenItems.set(key, m);
+    const on = favs.has(key);
+    return `<button type="button" class="fav" data-fav="${esc(key)}" data-label="${withLabel ? 1 : ""}" aria-pressed="${on}" aria-label="${on ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}"><span class="s">${on ? "★" : "☆"}</span>${withLabel ? `<span class="l">${on ? "Gemerkt" : "Merken"}</span>` : ""}</button>`;
+  }
+  function refreshFavUI() {
+    $("favcount").textContent = favs.size;
+    document.querySelectorAll("[data-fav]").forEach(b => {
+      const on = favs.has(b.dataset.fav);
+      b.setAttribute("aria-pressed", String(on));
+      b.setAttribute("aria-label", on ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen");
+      b.querySelector(".s").textContent = on ? "★" : "☆";
+      const l = b.querySelector(".l"); if (l) l.textContent = on ? "Gemerkt" : "Merken";
+    });
+    if (state.view === "favs") render();
+  }
+  function toggleFav(key) {
+    if (favs.has(key)) {
+      favs.delete(key);
+      if (favCol) favCol.doc(key).delete().catch(() => {});
+    } else {
+      const m = seenItems.get(key); if (!m) return;
+      const rec = toRecord(m); favs.set(key, rec);
+      if (favCol) favCol.doc(key).set(rec).catch(() => {});
+    }
+    saveLocal(); refreshFavUI();
+  }
+  (async () => {
+    const c = window.claude; if (!c || !c.use) return;
+    const [db, user] = await Promise.all([c.use("db"), c.use("user")]);
+    if (!db || !user) return;
+    const uid = await user.id(); if (!uid) return;
+    favCol = db.collection("data/users/" + uid);
+    let first = true;
+    favCol.onSnapshot(snap => {
+      const remote = new Map(snap.docs.filter(d => d.exists).map(d => [d.id, d.data()]));
+      if (first) {
+        first = false;
+        for (const [k, r] of favs) if (!remote.has(k)) { remote.set(k, r); favCol.doc(k).set(r).catch(() => {}); }
+      }
+      favs.clear(); remote.forEach((r, k) => favs.set(k, { ...r, key: k }));
+      saveLocal(); refreshFavUI();
+    }, () => {});
+  })().catch(() => {});
+  function renderFavs() {
+    const q = state.search.toLowerCase();
+    const list = [...favs.values()].filter(m => (!q || titleOf(m).toLowerCase().includes(q) || (m.title.romaji || "").toLowerCase().includes(q))
+      && state.genres.every(g => hasG(m, g))).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    resultsEl.innerHTML = list.length ? list.map(resultHTML).join("")
+      : `<div class="empty">${favs.size ? "Keiner deiner Favoriten passt zu dieser Suche." : "Noch keine Favoriten. Tippe bei einem Titel auf ☆ Merken, dann erscheint er hier."}</div>`;
+    countEl.textContent = `${list.length} von ${favs.size} Favoriten`;
+    sourceEl.textContent = favCol ? "Gespeichert in deinem Konto" : "Gespeichert in diesem Browser";
+    moreBtn.hidden = true;
+  }
+
+  // ---- Genre-Chips und Vorschläge ----
+  const chipHTML = ([en, de]) => `<button type="button" class="gchip" data-g="${esc(en)}" aria-pressed="${state.genres.includes(en)}">${esc(de)}</button>`;
+  function renderGenres() {
+    const n = state.genres.length, el = $("genres");
+    const head = `<span class="ghint">${n ? `${n} gewählt:` : "Genres, mehrere wählbar:"}</span>`;
+    const more = `<button type="button" class="gchip more" data-more="1" aria-expanded="${!!state.gopen}">${state.gopen ? "Weniger ▴" : `Alle ${ALL_FILTERS.length} ▾`}</button>`;
+    const clear = n ? `<button type="button" class="gchip clear" data-clear="1">Zurücksetzen</button>` : "";
+    el.classList.toggle("open", !!state.gopen);
+    if (state.gopen) {
+      el.innerHTML = head + more + clear + `<div class="gpanel">
+        <div class="ggroup"><h4>Genres</h4><div class="gwrap">${GENRES.map(chipHTML).join("")}</div></div>
+        <div class="ggroup"><h4>Themen</h4><div class="gwrap">${TAGS.map(chipHTML).join("")}</div></div></div>`;
+    } else {
+      const selected = ALL_FILTERS.filter(f => state.genres.includes(f[0]));
+      const rest = GENRES.filter(f => !state.genres.includes(f[0]));
+      el.innerHTML = head + more + clear + [...selected, ...rest].map(chipHTML).join("");
+    }
+  }
+  function toggleGenre(g, on) {
+    const has = state.genres.includes(g);
+    if (on === undefined) on = !has;
+    if (on && !has) state.genres.push(g);
+    if (!on && has) state.genres = state.genres.filter(x => x !== g);
+    renderGenres(); reset();
+  }
+  function genreMatches(text) {
+    const t = text.trim().toLowerCase();
+    if (t.length < 3) return [];
+    return ALL_FILTERS.filter(([en, de]) => !state.genres.includes(en) && (en.toLowerCase().startsWith(t) || de.toLowerCase().split(" / ").some(x => x.startsWith(t))));
+  }
+  function renderSuggest() {
+    const ms = genreMatches($("q").value);
+    $("suggest").hidden = !ms.length;
+    $("suggest").innerHTML = ms.length ? "Als Genre oder Thema suchen: " + ms.map(([en, de]) => `<button type="button" class="gchip" data-suggest="${esc(en)}">${esc(de)}</button>`).join("") : "";
+  }
+
+  // ---- Ergebnisse ----
+  function resultHTML(m) {
+    const t = titleOf(m);
+    const alt = m.title.english && m.title.romaji && m.title.english !== m.title.romaji ? `<div class="alt">${esc(m.title.romaji)}</div>` : "";
+    const img = m.coverImage?.medium ? `<img src="${esc(m.coverImage.medium)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+    const links = legalLinks(m), others = otherLinks(m);
+    const read = links.length
+      ? links.map(l => `<a class="btn solid" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.site)} ↗</a>`).join("")
+      : m.src === "jikan" && !m.externalLinks ? `<button type="button" class="btn small" data-ext="${m.mal}">Leseseiten laden</button>`
+      : `<span class="none">Keine englische Leseseite bekannt.</span>`;
+    return `<article class="res">
+      <div class="thumb" style="--c:${esc(m.coverImage?.color || `hsl(${hue(t)} 45% 40%)`)}"><div class="ph" aria-hidden="true">${GLYPH[m.countryOfOrigin] || ""}</div>${img}</div>
+      <div style="min-width:0">
+        <div class="head"><div style="min-width:0"><h3><a href="${esc(m.siteUrl)}" target="_blank" rel="noopener">${esc(t)}</a></h3>${alt}</div>${favBtn(m, true)}</div>
+        <div class="sub">
+          <span>${ORIGIN[m.countryOfOrigin] || ""}</span>
+          <span><span class="dot st-${m.status}"></span>${STATUS_DE[m.status] || ""}</span>
+          ${m.chapters ? `<span>${m.chapters} Kapitel${m.volumes ? ` · ${m.volumes} Bände` : ""}</span>` : m.status === "RELEASING" ? `<span>Kapitel erscheinen noch</span>` : ""}
+          ${m.startDate?.year ? `<span>seit ${m.startDate.year}</span>` : ""}
+          ${m.averageScore ? `<span>★ ${m.averageScore}/100</span>` : ""}
+        </div>
+        <div class="tags">${[...(m.genres || []), ...(m.tags || []).map(x => x.name || x).filter(x => TAG_SET.has(x))].map(g => `<button type="button" class="tag${state.genres.includes(g) ? " on" : ""}" data-g="${esc(g)}" title="Nach diesem Genre suchen">${esc(DE[g] || g)}</button>`).join("")}</div>
+        <div class="read"><span class="lbl">Kapitel</span>${links.length ? `<a class="btn small" href="${esc(links[0].url)}" target="_blank" rel="noopener">Alle Kapitel bei ${esc(links[0].site)} ↗</a>` : ""}<a class="btn ghost small" href="https://www.mangaupdates.com/search.html?search=${encodeURIComponent(t)}" target="_blank" rel="noopener">Neuestes Kapitel auf MangaUpdates ↗</a></div>
+        <div class="read"><span class="lbl">Englisch lesen</span>${read}</div>
+        ${others.length ? `<div class="read"><span class="lbl">Weitere offizielle Seiten</span>${others.map(l => `<a class="btn ghost small" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.site)}${l.language ? ` · ${esc(LANG_DE[l.language] || l.language)}` : ""} ↗</a>`).join("")}</div>` : ""}
+        <div class="read"><span class="lbl">Suchen bei</span>${shopLinks(m).map(([n, u]) => `<a class="btn ghost small" href="${esc(u)}" target="_blank" rel="noopener">${esc(n)} ↗</a>`).join("")}<a class="btn ghost small" href="${esc(m.siteUrl)}" target="_blank" rel="noopener">${m.src === "jikan" ? "MyAnimeList" : "AniList"} ↗</a></div>
+      </div>
+    </article>`;
+  }
+
+  function render() {
+    if (state.view === "favs") return renderFavs();
+    const shown = state.items.filter(m => !state.en || hasEnglish(m));
+    resultsEl.innerHTML = shown.length ? shown.map(resultHTML).join("")
+      : (state.loading ? "" : `<div class="empty">Keine Treffer. Versuch einen anderen Begriff, weniger Genres oder schalte „Nur mit englischer Leseseite“ aus.</div>`);
+    const what = [state.search && `„${state.search}“`, state.genres.map(g => DE[g] || g).join(" + ")].filter(Boolean).join(" · ");
+    countEl.textContent = state.live
+      ? `${state.total.toLocaleString("de-DE")} Titel gefunden${what ? " für " + what : ""} · ${shown.length} angezeigt${Object.values(state.cursors).some(c => c.hasNext) ? ", beim Scrollen kommen mehr" : ""}`
+      : `${shown.length} Treffer${what ? " für " + what : ""} in der eingebauten Auswahl`;
+    sourceEl.textContent = state.live ? (source === "static" ? `Quelle: AniList, Stand ${new Date(STATIC.meta.updated).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : source === "anilist" ? "Quelle: AniList, live" : "Quelle: MyAnimeList (Jikan), live") : "Quelle: eingebaute Auswahl";
+    const canMore = state.live && Object.values(state.cursors).some(c => c.hasNext);
+    moreBtn.hidden = !canMore;
+    moreBtn.disabled = state.loading;
+    moreBtn.textContent = state.loading ? "Suche läuft …" : "Mehr Ergebnisse";
+  }
+
+  const cache = new Map();
+  // Datenquelle: zuerst AniList; antwortet AniList nicht, übernimmt MyAnimeList über die Jikan-API
+  let source = "anilist", lastErr = "";
+  async function getJSON(url, opts = {}, retry = true) {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 10000);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctl.signal });
+      if (res.status === 429 && retry) { await new Promise(r => setTimeout(r, 1500)); return getJSON(url, opts, false); }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } catch (e) {
+      throw new Error(e.name === "AbortError" ? "Zeitüberschreitung" : e.message === "Failed to fetch" ? "keine Verbindung" : e.message);
+    } finally { clearTimeout(t); }
+  }
+  // AniList erlaubt derzeit etwa 30 Anfragen pro Minute. Bei mehr antwortet es ohne CORS-Header,
+  // was im Browser wie „keine Verbindung“ aussieht. Deshalb: Anfragen nacheinander, gut 2 Sekunden Abstand.
+  let aq = Promise.resolve(), anilistOk = false;
+  function anilistQueued(body) {
+    const p = aq.then(() => getJSON(API, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body }))
+      .catch(async e => {
+        if (!anilistOk) throw e;
+        await new Promise(r => setTimeout(r, 8000));
+        return getJSON(API, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body });
+      });
+    aq = p.catch(() => {}).then(() => new Promise(r => setTimeout(r, 2100)));
+    return p;
+  }
+  async function fetchAniList(vars) {
+    const body = JSON.stringify({ query: QUERY, variables: vars });
+    if (cache.has(body)) return cache.get(body);
+    const json = await anilistQueued(body);
+    anilistOk = true;
+    if (!json.data || !json.data.Page) throw new Error((json.errors && json.errors[0] && json.errors[0].message) || "leere Antwort");
+    cache.set(body, json.data.Page);
+    return json.data.Page;
+  }
+  const JIKAN = "https://api.jikan.moe/v4/manga";
+  const MAL_GENRE = { Action: 1, Adventure: 2, Comedy: 4, Mystery: 7, Drama: 8, Fantasy: 10, Horror: 14, Mecha: 18, Music: 19, Romance: 22, "Sci-Fi": 24, Sports: 30, "Slice of Life": 36, Supernatural: 37, Psychological: 40, Thriller: 45 };
+  const MAL_TYPE = { KR: "manhwa", CN: "manhua", JP: "manga", TW: "manhua" };
+  const MAL_STATUS = { RELEASING: "publishing", FINISHED: "complete", HIATUS: "hiatus" };
+  const MAL_STATUS_BACK = { Publishing: "RELEASING", Finished: "FINISHED", "On Hiatus": "HIATUS", Discontinued: "CANCELLED", "Not yet published": "NOT_YET_RELEASED" };
+  const MAL_SORT = { POPULARITY_DESC: ["members", "desc"], TRENDING_DESC: ["members", "desc"], SCORE_DESC: ["score", "desc"], START_DATE_DESC: ["start_date", "desc"], TITLE_ROMAJI: ["title", "asc"] };
+  // Jikan erlaubt etwa 3 Anfragen pro Sekunde: Anfragen nacheinander mit kleinem Abstand
+  let jq = Promise.resolve();
+  function jikanGet(url) {
+    if (cache.has(url)) return Promise.resolve(cache.get(url));
+    const p = jq.then(() => getJSON(url)).then(j => { cache.set(url, j); return j; });
+    jq = p.catch(() => {}).then(() => new Promise(r => setTimeout(r, 400)));
+    return p;
+  }
+  async function fetchJikan(vars) {
+    const sort = vars.sort[0], q = new URLSearchParams();
+    if (vars.country) q.set("type", MAL_TYPE[vars.country] || "manga");
+    q.set("page", vars.page); q.set("limit", Math.min(vars.per || 25, 25)); q.set("sfw", "true");
+    const [ob, dir] = MAL_SORT[sort] || MAL_SORT.POPULARITY_DESC; q.set("order_by", ob); q.set("sort", dir);
+    if (vars.search) q.set("q", vars.search);
+    const ids = [...(vars.genres || []).map(g => MAL_GENRE[g]), ...(vars.tags || []).map(g => MAL_TAG[g])].filter(Boolean);
+    if (ids.length) q.set("genres", ids.join(","));
+    if (vars.status) q.set("status", MAL_STATUS[vars.status]);
+    else if (sort === "TRENDING_DESC") q.set("status", "publishing");
+    if (vars.startGt) q.set("start_date", Math.floor(vars.startGt / 10000) + "-01-01");
+    const r = await jikanGet(JIKAN + "?" + q);
+    const ltYear = vars.startLt ? Math.floor(vars.startLt / 10000) : null;
+    const media = (r.data || []).filter(m => vars.country || ["Manga", "Manhwa", "Manhua", "One-shot"].includes(m.type)).map(m => ({
+      id: "mal" + m.mal_id, mal: m.mal_id, src: "jikan", siteUrl: m.url, countryOfOrigin: vars.country || ({ Manhwa: "KR", Manhua: "CN" }[m.type] || "JP"),
+      title: { english: m.title_english || null, romaji: m.title },
+      coverImage: { medium: m.images?.jpg?.image_url || null, large: m.images?.jpg?.large_image_url || m.images?.jpg?.image_url || null, color: null },
+      genres: (m.genres || []).map(g => g.name === "Suspense" ? "Thriller" : g.name).filter(n => MAL_GENRE[n]),
+      tags: [...(m.themes || []), ...(m.demographics || [])].map(g => MAL_TAG_NAME[g.name]).filter(Boolean),
+      status: MAL_STATUS_BACK[m.status] || null, chapters: m.chapters || null, volumes: m.volumes || null,
+      averageScore: m.score ? Math.round(m.score * 10) : null, popularity: m.members || 0, trending: m.members || 0,
+      startDate: { year: m.published?.prop?.from?.year || null }, externalLinks: extCache.get(m.mal_id) || null
+    })).filter(m => !ltYear || (m.startDate.year && m.startDate.year < ltYear));
+    return { pageInfo: { total: r.pagination?.items?.total || media.length, hasNextPage: !!r.pagination?.has_next_page }, media };
+  }
+  const extCache = new Map();
+  async function loadExternal(mal) {
+    const r = await jikanGet(JIKAN + "/" + mal + "/external");
+    const links = (r.data || []).map(l => ({ site: l.name, url: l.url, type: "INFO", language: null }));
+    extCache.set(mal, links);
+    [...state.items, ...favs.values()].forEach(m => { if (m.mal === mal) m.externalLinks = links; });
+    return links;
+  }
+  function sourceNotice() {
+    if (source !== "jikan") return;
+    notice.textContent = `AniList antwortet gerade nicht (${lastErr}). Die Titel kommen deshalb von MyAnimeList. Die Leseseiten eines Titels lädst du dort mit „Leseseiten laden“.`;
+    notice.hidden = false;
+  }
+  // ---- Feste Datendateien (auf GitHub Pages, dreimal täglich aktualisiert) ----
+  // Format je Titel: [id, englisch, romaji, genres, tags, status, kapitel, bände, wertung, beliebtheit, trend, jahr, cover, farbe, links]
+  const STATIC = { meta: null, data: {}, filtered: new Map() };
+  const STATUS_CODE = ["RELEASING", "FINISHED", "HIATUS", "NOT_YET_RELEASED", "CANCELLED"];
+  async function initStatic() {
+    try {
+      const r = await fetch("data/meta.json", { cache: "no-cache" });
+      if (!r.ok) return;
+      STATIC.meta = await r.json(); source = "static";
+    } catch (e) {}
+  }
+  async function staticCountry(c) {
+    if (!STATIC.data[c]) STATIC.data[c] = fetch(`data/${c}.json?v=${encodeURIComponent(STATIC.meta.updated)}`).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status); return r.json();
+    }).then(rows => rows.map(a => ({
+      id: a[0], siteUrl: "https://anilist.co/manga/" + a[0], countryOfOrigin: c,
+      title: { english: a[1] || null, romaji: a[2] }, genres: a[3] || [], tags: a[4] || [], status: STATUS_CODE[a[5]] || null,
+      chapters: a[6] || null, volumes: a[7] || null, averageScore: a[8] || null, popularity: a[9] || 0, trending: a[10] || 0,
+      startDate: { year: a[11] || null }, coverImage: { medium: a[12] || null, large: a[12] || null, color: a[13] || null },
+      externalLinks: (a[14] || []).map(([site, url, language, type]) => ({ site, url, language: language || null, type: type || "STREAMING" }))
+    })));
+    return STATIC.data[c];
+  }
+  async function fetchStatic(vars) {
+    const key = JSON.stringify({ ...vars, page: 0 });
+    let list = STATIC.filtered.get(key);
+    if (!list) {
+      const cs = vars.country ? [vars.country] : STATIC.meta.countries;
+      const all = (await Promise.all(cs.map(staticCountry))).flat();
+      const q = (vars.search || "").toLowerCase();
+      const gt = vars.startGt ? Math.floor(vars.startGt / 10000) : null, lt = vars.startLt ? Math.floor(vars.startLt / 10000) : null;
+      list = all.filter(m => (!q || (m.title.english || "").toLowerCase().includes(q) || m.title.romaji.toLowerCase().includes(q))
+        && (vars.genres || []).every(g => m.genres.includes(g)) && (vars.tags || []).every(t => m.tags.includes(t))
+        && (!vars.status || m.status === vars.status)
+        && (!gt || (m.startDate.year && m.startDate.year >= gt)) && (!lt || (m.startDate.year && m.startDate.year < lt)));
+      const sort = vars.sort[0];
+      list.sort(sort === "START_DATE_DESC" ? (a, b) => (b.startDate.year || 0) - (a.startDate.year || 0) : SORTERS[sort] || SORTERS.POPULARITY_DESC);
+      STATIC.filtered.set(key, list);
+    }
+    const per = vars.per || 50, start = (vars.page - 1) * per;
+    return { pageInfo: { total: list.length, hasNextPage: start + per < list.length }, media: list.slice(start, start + per) };
+  }
+
+  async function fetchMedia(vars) {
+    if (source === "static") return fetchStatic(vars);
+    if (source === "anilist") {
+      try { return await fetchAniList(vars); }
+      catch (e) {
+        if (anilistOk) throw Object.assign(e, { rate: true });
+        if (source === "anilist") { lastErr = e.message; source = "jikan"; sourceNotice(); }
+      }
+    }
+    return fetchJikan(vars);
+  }
+  const baseVars = () => {
+    const g = state.genres.filter(x => !TAG_SET.has(x)), t = state.genres.filter(x => TAG_SET.has(x));
+    return { search: state.search || null, genres: g.length ? g : null, tags: t.length ? t : null, status: state.status || null };
+  };
+  const fetchPage = (country, page) => fetchMedia({ ...baseVars(), page, per: PER_PAGE, country, sort: [state.sort, "ID"] });
+
+  const SORTERS = {
+    POPULARITY_DESC: (a, b) => (b.popularity || 0) - (a.popularity || 0),
+    TRENDING_DESC: (a, b) => (b.trending || 0) - (a.trending || 0),
+    SCORE_DESC: (a, b) => (b.averageScore || 0) - (a.averageScore || 0),
+    START_DATE_DESC: (a, b) => (b.startDate?.year || 0) - (a.startDate?.year || 0),
+    TITLE_ROMAJI: (a, b) => (a.title.romaji || "").localeCompare(b.title.romaji || "")
+  };
+
+  async function loadMore() {
+    if (state.loading) return;
+    const run = state.run;
+    state.loading = true; render();
+    try {
+      // Bei aktivem Englisch-Filter bis zu 3 Runden holen, damit genug Treffer erscheinen
+      let added = 0, rounds = 0;
+      do {
+        const todo = countries().filter(c => state.cursors[c].hasNext);
+        if (!todo.length) break;
+        const pages = await Promise.all(todo.map(c => fetchPage(c, state.cursors[c].page + 1)));
+        if (run !== state.run) return;
+        state.live = true; notice.hidden = true; sourceNotice(); rounds++;
+        todo.forEach((c, i) => { const p = pages[i]; state.cursors[c] = { page: state.cursors[c].page + 1, hasNext: p.pageInfo.hasNextPage, total: p.pageInfo.total }; state.items.push(...p.media); added += p.media.filter(m => !state.en || hasEnglish(m)).length; });
+        state.total = Object.values(state.cursors).reduce((s, c) => s + (c.total || 0), 0);
+        if (todo.length > 1) state.items.sort(SORTERS[state.sort]);
+      } while (state.en && added < 10 && rounds < 3);
+    } catch (e) {
+      if (run !== state.run) return;
+      if (e.rate) { notice.textContent = "AniList bremst gerade, weil zu viele Anfragen kamen. Warte etwa eine Minute und tippe dann auf „Mehr Ergebnisse“."; notice.hidden = false; }
+      else if (!state.live) useSample();
+      else { notice.textContent = "Die Verbindung zu AniList ist abgebrochen. Tippe noch einmal auf „Mehr Ergebnisse“."; notice.hidden = false; }
+    } finally {
+      if (run === state.run) { state.loading = false; render(); }
+    }
+  }
+
+  function useSample() {
+    state.live = false;
+    notice.innerHTML = location.protocol === "file:"
+      ? `AniList und MyAnimeList sind gerade nicht erreichbar (${esc(lastErr || "unbekannter Fehler")}), deshalb siehst du nur die eingebaute Auswahl. Prüfe die Internetverbindung und öffne die Datei direkt in Chrome, Safari, Firefox oder Edge, nicht in einer Vorschau- oder Datei-App. <button type="button" class="btn small" id="retry">Erneut versuchen</button>`
+      : "Die Live-Suche über AniList ist in dieser Vorschau gesperrt, deshalb durchsuchst du gerade eine eingebaute Auswahl. Lade die Datei <b>manhwa-regal.html</b> herunter und öffne sie in deinem Browser: Dann durchsucht sie alle Titel live, mit Covern. <button type=\"button\" class=\"btn small\" id=\"retry\">Erneut versuchen</button>";
+    const rb = document.getElementById("retry"); if (rb) rb.onclick = () => { state.live = null; notice.hidden = true; reset(); };
+    notice.hidden = false;
+    const q = state.search.toLowerCase();
+    const list = SAMPLE.filter(m => (state.country === "ALL" || m.countryOfOrigin === state.country)
+      && (!q || titleOf(m).toLowerCase().includes(q) || m.genres.some(g => g.toLowerCase().includes(q) || (DE[g] || "").toLowerCase().includes(q)))
+      && state.genres.every(g => hasG(m, g))
+      && (!state.status || m.status === state.status));
+    state.items = [...list].sort(SORTERS[state.sort === "TITLE_ROMAJI" ? "TITLE_ROMAJI" : "POPULARITY_DESC"]);
+  }
+
+  // ---- Regale: Neue heiße Titel, Gerade angesagt, Klassiker ----
+  const shelvesEl = $("shelves");
+  function scardHTML(m, i) {
+    const t = titleOf(m), link = legalLinks(m)[0];
+    const img = m.coverImage?.large || m.coverImage?.medium;
+    return `<div class="scard"><div class="wrapthumb">${favBtn(m, false)}
+      <a class="thumb" href="${esc(m.siteUrl)}" target="_blank" rel="noopener" style="--c:${esc(m.coverImage?.color || `hsl(${hue(t)} 45% 40%)`)}" aria-label="${esc(t)} auf AniList">
+        ${state.live ? `<span class="rank">#${i + 1}</span>` : ""}<span class="ph" aria-hidden="true">${img ? "" : `<b>${esc(t)}</b>`}</span>${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+      </a></div>
+      <h3><a href="${esc(m.siteUrl)}" target="_blank" rel="noopener">${esc(t)}</a></h3>
+      <div class="g">${(m.genres || []).slice(0, 3).map(g => esc(DE[g] || g)).join(" · ")}</div>
+      ${link ? `<a class="btn solid" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.site)} ↗</a>` : `<a class="btn ghost" href="${esc(m.siteUrl)}" target="_blank" rel="noopener">${m.src === "jikan" ? "MyAnimeList" : "AniList"} ↗</a>`}
+    </div>`;
+  }
+  function shelfHTML(s, list) {
+    const g = state.genres.length ? ` · ${state.genres.map(x => DE[x] || x).join(" + ")}` : "";
+    const body = list === null ? `<div class="skel">Lade …</div>` : list.error ? `<div class="skel">Konnte nicht geladen werden (${esc(list.error)}).</div>` : list.length ? `<div class="track">${list.map(scardHTML).join("")}</div>` : `<div class="skel">Keine passenden Titel.</div>`;
+    return `<section class="shelf"><h2>${esc(s.title)} <small>${esc((state.live === false ? s.sampleSub : s.sub) + g)}</small></h2>${body}</section>`;
+  }
+  const matchesFilters = m => (state.country === "ALL" || m.countryOfOrigin === state.country) && state.genres.every(g => hasG(m, g)) && (!state.status || m.status === state.status) && (!state.en || hasEnglish(m));
+  function sampleShelves() {
+    const byTitle = new Map(SAMPLE.map(m => [titleOf(m), m]));
+    shelvesEl.innerHTML = SHELVES.filter(s => s.sample).map(s => shelfHTML(s, s.sample.map(t => byTitle.get(t)).filter(m => m && matchesFilters(m)))).join("");
+  }
+  async function loadShelves(run) {
+    if (run !== state.run) return;
+    if (state.search) { shelvesEl.innerHTML = ""; return; }
+    if (state.live === false) { sampleShelves(); return; }
+    const results = {};
+    const paint = () => { if (run === state.run) shelvesEl.innerHTML = SHELVES.map(s => shelfHTML(s, results[s.key] ?? null)).join(""); };
+    paint();
+    for (const s of SHELVES) {
+      try {
+        const pages = await Promise.all(countries().map(c => fetchMedia({ ...baseVars(), search: null, page: 1, per: 25, country: c, sort: [s.sort, "ID"], startGt: s.startGt || null, startLt: s.startLt || null })));
+        if (run !== state.run) return;
+        results[s.key] = pages.flatMap(p => p.media).sort(SORTERS[s.sort]).filter(m => !state.en || hasEnglish(m)).slice(0, 12);
+      } catch (e) {
+        if (run !== state.run) return;
+        results[s.key] = Object.assign([], { error: e.message });
+      }
+      paint();
+    }
+  }
+
+  const SORT_DE = { POPULARITY_DESC: "nach Beliebtheit", TRENDING_DESC: "gerade angesagt zuerst", SCORE_DESC: "nach Bewertung", START_DATE_DESC: "neueste zuerst", TITLE_ROMAJI: "von A bis Z" };
+  function reset() {
+    state.run++; state.items = []; state.total = 0; state.loading = false;
+    const run = state.run;
+    state.cursors = Object.fromEntries(countries().map(c => [c, { page: 0, hasNext: true }]));
+    try { localStorage.setItem("manhwa-regal", JSON.stringify({ country: state.country, en: state.en })); } catch (e) {}
+    document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.country === state.country)));
+    $("favtab").setAttribute("aria-pressed", String(state.view === "favs"));
+    $("list-h").firstChild.textContent = state.view === "favs" ? "Deine Favoriten " : state.search ? "Suchergebnisse " : "Alle Titel ";
+    $("list-sub").textContent = state.view === "favs" ? "zuletzt gemerkt zuerst" : SORT_DE[state.sort];
+    shelvesEl.hidden = state.view === "favs";
+    if (state.view === "favs") { render(); return; }
+    if (state.live === false) { useSample(); render(); loadShelves(run); }
+    else loadMore().then(() => loadShelves(run));
+  }
+
+  // ---- Ereignisse ----
+  document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => { state.country = b.dataset.country; reset(); }));
+  let tmr;
+  $("q").addEventListener("input", e => { renderSuggest(); clearTimeout(tmr); tmr = setTimeout(() => { const v = e.target.value.trim(); if (v !== state.search) { state.search = v; reset(); } }, 450); });
+  $("form").addEventListener("submit", e => {
+    e.preventDefault(); clearTimeout(tmr);
+    const v = $("q").value.trim();
+    const exact = ALL_FILTERS.find(([en, de]) => v.toLowerCase() === en.toLowerCase() || de.toLowerCase().split(" / ").concat(de.toLowerCase()).includes(v.toLowerCase()));
+    if (exact) { $("q").value = ""; state.search = ""; renderSuggest(); toggleGenre(exact[0], true); return; }
+    state.search = v; reset();
+  });
+  $("suggest").addEventListener("click", e => { const b = e.target.closest("[data-suggest]"); if (!b) return; $("q").value = ""; state.search = ""; renderSuggest(); toggleGenre(b.dataset.suggest, true); });
+  $("genres").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.more) { state.gopen = !state.gopen; renderGenres(); return; } if (b.dataset.clear) { state.genres = []; renderGenres(); reset(); } else toggleGenre(b.dataset.g); });
+  resultsEl.addEventListener("click", e => { const b = e.target.closest(".tag"); if (b) { toggleGenre(b.dataset.g, true); window.scrollTo({ top: 0, behavior: "smooth" }); } });
+  $("status").addEventListener("change", e => { state.status = e.target.value; reset(); });
+  $("sort").addEventListener("change", e => { state.sort = e.target.value; reset(); });
+  $("en").addEventListener("change", e => { state.en = e.target.checked; try { localStorage.setItem("manhwa-regal", JSON.stringify({ country: state.country, en: state.en })); } catch (x) {} if (state.live === false) useSample(); render(); loadShelves(state.run); });
+  moreBtn.addEventListener("click", loadMore);
+  document.addEventListener("click", e => { const b = e.target.closest("[data-fav]"); if (b) { e.preventDefault(); toggleFav(b.dataset.fav); } });
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-ext]"); if (!b) return;
+    b.disabled = true; b.textContent = "Lade …";
+    loadExternal(Number(b.dataset.ext)).then(() => render()).catch(err => { b.disabled = false; b.textContent = "Fehler: " + err.message + ", nochmal versuchen"; });
+  });
+  $("favtab").addEventListener("click", () => { state.view = state.view === "favs" ? "all" : "favs"; reset(); });
+  $("favcount").textContent = favs.size;
+  if ("IntersectionObserver" in window) new IntersectionObserver(es => { if (es[0].isIntersecting && state.live && !moreBtn.hidden) loadMore(); }, { rootMargin: "500px" }).observe(moreBtn);
+
+  renderGenres();
+  initStatic().then(reset);
+})();
+</script>
+
+</body>
+</html>

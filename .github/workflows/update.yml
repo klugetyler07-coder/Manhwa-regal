@@ -1,0 +1,45 @@
+name: Titel aktualisieren und veröffentlichen
+
+on:
+  schedule:
+    # dreimal täglich (UTC): 04:00, 12:00 und 20:00
+    - cron: "0 4,12,20 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Titel von AniList holen
+        run: node scripts/fetch-data.mjs site
+      - name: Website dazulegen
+        run: cp index.html site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
