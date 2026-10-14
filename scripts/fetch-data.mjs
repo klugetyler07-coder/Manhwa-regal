@@ -30,7 +30,8 @@ async function query(variables, attempt = 1, q = QUERY) {
   const res = await fetch("https://graphql.anilist.co", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query: q, variables })
+    // AniList behandelt null als Wert („Illegal operator and value combination“), deshalb weglassen
+    body: JSON.stringify({ query: q, variables: Object.fromEntries(Object.entries(variables).filter(([, x]) => x != null)) })
   });
   if (res.status === 429 || res.status >= 500) {
     if (attempt > 8) throw new Error(`AniList antwortet mit ${res.status}`);

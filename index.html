@@ -574,7 +574,8 @@ footer a { color: var(--accent); }
     return p;
   }
   async function fetchAniList(vars) {
-    const body = JSON.stringify({ query: QUERY, variables: vars });
+    // AniList behandelt null als Wert und antwortet mit Fehler 400, deshalb leere Variablen weglassen
+    const body = JSON.stringify({ query: QUERY, variables: Object.fromEntries(Object.entries(vars).filter(([, x]) => x != null)) });
     if (cache.has(body)) return cache.get(body);
     const json = await anilistQueued(body);
     anilistOk = true;
