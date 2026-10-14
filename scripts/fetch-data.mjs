@@ -9,9 +9,10 @@ const COUNTRIES = ["KR", "CN", "JP", "TW"];
 const DELAY_MS = 2200; // AniList erlaubt derzeit etwa 30 Anfragen pro Minute
 const STATUS = { RELEASING: 0, FINISHED: 1, HIATUS: 2, NOT_YET_RELEASED: 3, CANCELLED: 4 };
 
-const QUERY = `query($country:CountryCode,$after:Int){
-  Page(page:1,perPage:50){
-    media(type:MANGA,countryOfOrigin:$country,isAdult:false,sort:ID,id_greater:$after){
+const QUERY = `query($country:CountryCode,$page:Int){
+  Page(page:$page,perPage:50){
+    pageInfo{ hasNextPage }
+    media(type:MANGA,countryOfOrigin:$country,isAdult:false,sort:ID){
       id title{ romaji english } genres tags{ name rank isMediaSpoiler } status chapters volumes
       averageScore popularity trending startDate{ year } coverImage{ medium color }
       externalLinks{ site url type language }
@@ -36,7 +37,7 @@ async function query(variables, attempt = 1) {
   let json;
   try { json = JSON.parse(text); } catch { throw new Error(`AniList HTTP ${res.status}, keine JSON-Antwort: ${text.slice(0, 300)}`); }
   if (!res.ok || json.errors) throw new Error(`AniList HTTP ${res.status}: ${JSON.stringify(json.errors || json).slice(0, 600)}`);
-  return json.data.Page.media;
+  return json.data.Page;
 }
 
 const row = m => {
@@ -55,20 +56,17 @@ await mkdir(OUT, { recursive: true });
 const counts = {};
 for (const country of COUNTRIES) {
   const rows = [];
-  let after = 0;
-  for (;;) {
-    const media = await query({ country, after });
-    if (!after) console.log(`::notice title=${country}::Erste Seite geladen (${media.length} Titel)`);
+  for (let page = 1; ; page++) {
+    const { media, pageInfo } = await query({ country, page });
     rows.push(...media.map(row));
-    if (media.length < 50) break;
-    after = media[media.length - 1].id;
+    if (!pageInfo.hasNextPage || !media.length) break;
     if (rows.length % 1000 === 0) console.log(`${country}: ${rows.length}`);
     await sleep(DELAY_MS);
   }
   rows.sort((a, b) => (b[9] || 0) - (a[9] || 0));
   await writeFile(join(OUT, `${country}.json`), JSON.stringify(rows));
   counts[country] = rows.length;
-  console.log(`${country}: ${rows.length} Titel gespeichert`);
+  console.log(`::notice title=${country}::${rows.length} Titel gespeichert`);
   await sleep(DELAY_MS);
 }
 await writeFile(join(OUT, "meta.json"), JSON.stringify({ updated: new Date().toISOString(), countries: COUNTRIES, counts }));
