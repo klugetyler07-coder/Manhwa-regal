@@ -32,8 +32,10 @@ async function query(variables, attempt = 1) {
     await sleep(wait);
     return query(variables, attempt + 1);
   }
-  const json = await res.json();
-  if (!res.ok || json.errors) throw new Error(JSON.stringify(json.errors || res.status));
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`AniList HTTP ${res.status}, keine JSON-Antwort: ${text.slice(0, 300)}`); }
+  if (!res.ok || json.errors) throw new Error(`AniList HTTP ${res.status}: ${JSON.stringify(json.errors || json).slice(0, 600)}`);
   return json.data.Page.media;
 }
 
@@ -47,6 +49,9 @@ const row = m => {
   while (a.length && !a[a.length - 1]) a.pop(); // leere Felder am Ende weglassen
   return a;
 };
+
+// Fehler als GitHub-Annotation ausgeben, damit sie in der Übersicht des Laufs sichtbar sind
+process.on("unhandledRejection", e => { console.log(`::error title=Abholen fehlgeschlagen::${String(e && e.message || e).slice(0, 900)}`); process.exit(1); });
 
 await mkdir(OUT, { recursive: true });
 const counts = {};
